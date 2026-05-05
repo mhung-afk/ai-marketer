@@ -8,44 +8,19 @@ Trigger: SNS topic `healing-bedroom-budget-alerts`
 """
 
 import json
+import re
 import logging
-import os
 import urllib.request
 from datetime import datetime, timezone
-from typing import Optional
-
-import boto3
+from common.utils import get_parameter
+from common.config import (
+    AWS_REGION,
+    PARAM_TELEGRAM_BOT_TOKEN,
+    PARAM_TELEGRAM_CHAT_ID
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-# Initialize AWS Systems Manager client
-ssm_client = boto3.client("ssm")
-
-# Parameter Store parameter names
-PARAM_TELEGRAM_BOT_TOKEN = "/healing-bedroom/telegram-bot-token"
-PARAM_TELEGRAM_CHAT_ID = "/healing-bedroom/telegram-chat-id"
-
-# AWS Region (set by Lambda runtime)
-AWS_REGION = os.environ.get("AWS_REGION", "ap-southeast-1")
-
-def get_parameter(parameter_name: str, with_decryption: bool = False) -> Optional[str]:
-    try:
-        response = ssm_client.get_parameter(
-            Name=parameter_name,
-            WithDecryption=with_decryption
-        )
-        value = response["Parameter"]["Value"]
-        cleaned = str(value).strip()   # Aggressive strip
-        
-        logger.info(f"✅ Retrieved: {parameter_name}")
-        
-        return cleaned
-
-    except Exception as e:
-        logger.error(f"Failed to get parameter {parameter_name}: {e}")
-        raise
-
 
 def lambda_handler(event, context):
     """
@@ -164,7 +139,6 @@ def send_telegram_message(token, chat_id, message):
     chat_id = str(chat_id).strip()
     
     # Remove any invisible characters
-    import re
     token = re.sub(r'[\s\n\r\t]+', '', token)
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"

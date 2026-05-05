@@ -15,12 +15,9 @@ from aws_cdk import (
     aws_logs as logs,
     aws_sns as sns,
     aws_sns_subscriptions as sns_subs,
-    aws_events as events,
     aws_budgets as budgets,
-    aws_ssm as ssm,
     Duration,
     RemovalPolicy,
-    CfnOutput,
     Tags,
 )
 from constructs import Construct
@@ -54,7 +51,13 @@ class HealingBedroomStack(Stack):
         self.lambda_role = self._create_lambda_role()
         self.log_group = self._create_cloudwatch_log_group()
         self.sns_topic = self._create_sns_topic()
-        # self.parameter_store_params = self._create_parameter_store_params()
+        self.shared_layer = lambda_.LayerVersion(
+            self, "SharedCommonLayer",
+            code=lambda_.Code.from_asset("src/layers/common"),
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
+            description="Shared utilities, config, SSM helpers",
+            layer_version_name="healing-bedroom-common",
+        )
         self.notifier_lambda = self._create_lambda_notifier()
         self.budget_alarm = self._create_budget_alarm()
 
@@ -256,6 +259,7 @@ class HealingBedroomStack(Stack):
             timeout=Duration.seconds(30),
             memory_size=256,
             log_retention=logs.RetentionDays.ONE_WEEK,
+            layers=[self.shared_layer]
         )
 
         notifier.add_to_role_policy(iam.PolicyStatement(
@@ -271,50 +275,6 @@ class HealingBedroomStack(Stack):
         self.sns_topic.add_subscription(sns_subs.LambdaSubscription(notifier))
 
         return notifier
-
-    def _create_parameter_store_params(self) -> dict:
-        """Create Parameter Store parameters for API keys and secrets."""
-        params = {}
-
-        # Phase 1 parameters (required)
-        phase1_params = {
-            "anthropic-api-key": "Placeholder for Anthropic API key",
-            "fal-ai-key": "Placeholder for fal.ai API key",
-            "telegram-bot-token": "Placeholder for Telegram Bot token",
-            "telegram-chat-id": "Placeholder for Telegram chat ID",
-        }
-
-        for param_name, param_value in phase1_params.items():
-            param = ssm.StringParameter(
-                self,
-                f"Param{param_name.title().replace('-', '')}",
-                parameter_name=f"{config.PARAM_PREFIX}/{param_name}",
-                string_value=param_value,
-                type=ssm.ParameterType.STRING,
-                tier=ssm.ParameterTier.STANDARD,
-                description=f"Phase 1 parameter: {param_name}",
-            )
-            params[param_name] = param
-
-        # Phase 2+ placeholders
-        phase2_params = {
-            "apify-api-token": "Placeholder for Apify API token",
-            "facebook-page-access-token": "Placeholder for Facebook Page token",
-        }
-
-        for param_name, param_value in phase2_params.items():
-            param = ssm.StringParameter(
-                self,
-                f"Param{param_name.title().replace('-', '')}",
-                parameter_name=f"{config.PARAM_PREFIX}/{param_name}",
-                string_value=param_value,
-                type=ssm.ParameterType.STRING,
-                tier=ssm.ParameterTier.STANDARD,
-                description=f"Phase 2+ parameter: {param_name}",
-            )
-            params[param_name] = param
-
-        return params
 
     def _create_budget_alarm(self) -> budgets.CfnBudget:
         """Create AWS Budget for cost monitoring."""
