@@ -49,10 +49,6 @@ cdk.out/
 # Temporary files
 *.tmp
 
-# Local working notes and vault
-vault/
-.vault/
-
 # IDE temporary files
 *.swp
 *.swo
