@@ -1,0 +1,90 @@
+{
+  "dynamodb_items": [
+    {
+      "item_id": "uuid-sample-001",
+      "status": "RAW",
+      "created_at": "2026-05-03T10:00:00Z",
+      "niche": "self-help",
+      "source_platform": "tiktok",
+      "source_url": "https://www.tiktok.com/@user/video/123456",
+      "original_caption": "Sample caption from TikTok",
+      "original_image_url": "https://example.com/image.jpg"
+    }
+  ],
+  "parameter_store_params": [
+    {
+      "name": "/healing-bedroom/anthropic-api-key",
+      "value": "sk-ant-sample-api-key",
+      "type": "String",
+      "description": "Sample Anthropic API key (Phase 1)"
+    },
+    {
+      "name": "/healing-bedroom/fal-ai-key",
+      "value": "fal-ai-sample-key",
+      "type": "String",
+      "description": "Sample fal.ai API key (Phase 1)"
+    },
+    {
+      "name": "/healing-bedroom/telegram-bot-token",
+      "value": "123456789:ABCxyz_sample_token",
+      "type": "String",
+      "description": "Sample Telegram Bot token (Phase 1)"
+    },
+    {
+      "name": "/healing-bedroom/telegram-chat-id",
+      "value": "987654321",
+      "type": "String",
+      "description": "Sample Telegram chat ID (Phase 1)"
+    }
+  ],
+  "sns_messages": [
+    {
+      "type": "budget_alert_50_percent",
+      "body": {
+        "version": "1.0",
+        "notificationType": "ACTUAL",
+        "subscriptionName": "Healing Bedroom Monthly Budget",
+        "budgetName": "HealingBedroom-Monthly-Budget",
+        "trigger": {
+          "thresholdType": "ABSOLUTE_VALUE",
+          "threshold": "20",
+          "notificationFrequency": "Immediate"
+        },
+        "current": {
+          "amount": "20.50",
+          "unit": "USD"
+        },
+        "max": {
+          "amount": "40.00",
+          "unit": "USD"
+        },
+        "accountId": "123456789012",
+        "timeStamp": "2026-05-03T10:00:00Z"
+      }
+    },
+    {
+      "type": "budget_alert_80_percent",
+      "body": {
+        "version": "1.0",
+        "notificationType": "ACTUAL",
+        "subscriptionName": "Healing Bedroom Monthly Budget",
+        "budgetName": "HealingBedroom-Monthly-Budget",
+        "trigger": {
+          "thresholdType": "ABSOLUTE_VALUE",
+          "threshold": "32",
+          "notificationFrequency": "Immediate"
+        },
+        "current": {
+          "amount": "32.50",
+          "unit": "USD"
+        },
+        "max": {
+          "amount": "40.00",
+          "unit": "USD"
+        },
+        "accountId": "123456789012",
+        "timeStamp": "2026-05-03T15:00:00Z"
+      }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# AWS CDK
+cdk.context.json
+*.js
+cdk.out/
+
+# Temporary files
+*.tmp
+
+# Local working notes and vault
+vault/
+.vault/
+
+# IDE temporary files
+*.swp
+*.swo
+.DS_Store
+*.log
+*.bak
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test artifacts
+.tox/
+coverage.xml
+*.cover
+
+# Project specific
+vault/secret.txt
+.specify/cache/
