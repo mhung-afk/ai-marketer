@@ -29,12 +29,6 @@ jobs:
         pip install flake8 black mypy pylint 
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    - name: Recreate Symlinks
-      run: |
-        # Recreate the symlink in the runner environment
-        mkdir -p src/layers/common/
-        ln -s $(pwd)/src/common src/layers/common/python
-
     - name: Lint with flake8
       run: |
         # Use --exclude to ignore venv and cdk.out
