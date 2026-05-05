@@ -1,50 +1,78 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!-- Sync Impact Report
+  Version: 1.0.0 (initial)
+  Status: Constitution established for AI-marketer project
+  Changed Principles: None (inaugural constitution)
+  Added Sections: Core Principles, Operations, Governance
+  Removed Sections: None
+  Templates Updated: All dependent templates reviewed for alignment
+  Follow-up TODOs: None - constitution ratified May 3, 2026
+-->
+
+# AI-Marketer Constitution
+**Building an AI-first e-commerce venture with compliance-first discipline, lean engineering, and human oversight**
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Compliance-First (NON-NEGOTIABLE)
+Every piece of AIGC content MUST carry explicit AIGC labels and affiliate disclaimers before publication. Hard gates in the dashboard enforce this with no exceptions. Compliance violations block posting immediately and trigger incident review. This protects audience trust and ensures sustainable affiliate operations.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Simplicity Over Perfection
+Build only what directly generates revenue or supports compliance. No over-engineering infrastructure, no speculative features, no organizational-only tooling. YAGNI (You Aren't Gonna Need It) discipline. Target: Deploy MVP in 12 weeks, iterate on data.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Cost Discipline
+Every tool choice and API call must justify its cost. Default to lowest-cost options: Claude Haiku (not Sonnet), DynamoDB on-demand (not provisioned), Lambda (not EC2). Monthly budget hard-capped at $50 USD. Trade cost constraints for feature scope—always.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Documentation & Decisions as First-Class Artifacts
+All major decisions, design choices, and lessons learned must be captured in `/vault/` with clear timestamps. Plan, tech-spec, and phase notes are living documents updated before implementation. This repo stores both code and decision history—they are equally important.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Automation with Human Oversight
+AI generates content at scale; humans verify every item before posting. The Streamlit dashboard with "Verify Compliance" checkbox is the mandatory gate. No fully autonomous posting. Human judgment remains the trust boundary.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Lean Iteration & Pivot Readiness
+Define clear checkpoints (Weeks 4, 8, 12) and metrics (organic reach, CTR, affiliate clicks). Pivot format or niche without hesitation if metrics miss thresholds. Treat first 12 weeks as a constrained pilot; do not scale until proof-of-concept metrics are achieved.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Technology & Operations Standards
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Tech Stack Constraints**:
+- LLM: Claude Haiku 4.5 by default; Sonnet 4.6 only when unavoidable
+- Image Generation: Nano Banana 2 (fal.ai) for Vietnamese text handling
+- Infrastructure: AWS Lambda + DynamoDB + S3 + CloudWatch (serverless only, no EC2)
+- Monitoring: CloudWatch Logs + Telegram alerts; no complex observability infrastructure
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+**Development Environment**:
+- Repository structure: `/vault/` for plans and decisions, `/src/` for code
+- Source of truth: Specify workflow (plan.md → tech-spec.md → implementation)
+- Change tracking: Git commits tied to Spec Kit tasks; all PRs reference decisions in `/vault/`
+
+**Compliance Enforcement**:
+- Every social post MUST include: AIGC disclosure tag, affiliate link disclaimer, niche category tag
+- Dashboard hard gate: "Verify Compliance" checkbox required before approval (no bypassing)
+- Content review SOP: Dashboard review + manual audit before first publication of new niche/format
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This Constitution is the supreme law of the AI-Marketer project. All engineering decisions, deployment practices, and operational procedures MUST comply with these principles.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Amendment Procedure**:
+1. Proposed amendment MUST be documented in `/vault/amendment-proposal.md` with rationale
+2. Changes to Core Principles require manual review and approval before committing
+3. Version bumps follow semantic versioning:
+   - MAJOR: Principle removed or redefined (backward-incompatible governance shift)
+   - MINOR: New principle or section added; existing guidance expanded
+   - PATCH: Clarifications, wording improvements, typo fixes
+4. Each amendment updates LAST_AMENDED_DATE and increments version
+
+**Compliance Verification**:
+- All code reviews MUST verify adherence to Cost Discipline and Simplicity principles
+- Monthly cost audits against the $50 USD hard cap
+- Weekly compliance spot-checks: Sample 5 recent posts for AIGC labels and disclaimers
+- Checkpoint reviews at Weeks 4, 8, 12 against defined success metrics
+
+**Guidance Runtime Documents**:
+- See [.github/copilot-instructions.md](.github/copilot-instructions.md) for development environment setup
+- See `vault/plan.md` for timeline, budget, and checkpoint metrics
+- See `vault/phase1/tech-spec.md` for implementation details and architecture
+
+---
+
+**Version**: 1.0.0 | **Ratified**: 2026-05-03 | **Last Amended**: 2026-05-03

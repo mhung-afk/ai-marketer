@@ -1,0 +1,51 @@
+name: Python Linting and Formatting
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+    - uses: actions/checkout@v4 # Updated to v4 for better performance
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5 # Updated to v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip' # Speeds up subsequent runs
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Ensure linting tools are installed if not in requirements.txt
+        pip install flake8 black mypy pylint 
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Lint with flake8
+      run: |
+        # Use --exclude to ignore venv and cdk.out
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=venv,cdk.out,.git
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics --exclude=venv,cdk.out,.git
+
+    - name: Format check with black
+      run: |
+        # Use --extend-exclude for black
+        black --check --line-length=100 . --extend-exclude="(venv|cdk\.out|cdk\.context\.json)"
+
+    - name: Type check with mypy
+      run: |
+        # Mypy uses --exclude (regex)
+        mypy . --ignore-missing-imports --no-implicit-optional --exclude "(venv|cdk\.out)" || true
+
+    - name: Pylint check
+      run: |
+        # Explicitly exclude directories in the find command
+        pylint $(find . -path ./venv -prune -o -path ./cdk.out -prune -o -type f -name "*.py" | grep -E "(cdk|src|tests)" | head -20) --disable=all --enable=E,F || true
