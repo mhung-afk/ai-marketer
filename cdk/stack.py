@@ -15,6 +15,9 @@ from aws_cdk import (
     aws_logs as logs,
     aws_sns as sns,
     aws_sns_subscriptions as sns_subs,
+    aws_sqs as sqs,
+    aws_events as events,
+    aws_events_targets as targets,
     aws_budgets as budgets,
     Duration,
     RemovalPolicy,
@@ -51,6 +54,8 @@ class HealingBedroomStack(Stack):
         self.lambda_role = self._create_lambda_role()
         self.log_group = self._create_cloudwatch_log_group()
         self.sns_topic = self._create_sns_topic()
+        self.sns_ingestion_topic = self._create_ingestion_sns_topic()
+        self.dlq = self._create_sqs_dlq()
         self.shared_layer = lambda_.LayerVersion(
             self, "SharedCommonLayer",
             code=lambda_.Code.from_asset("src/layers/common"),
@@ -59,6 +64,8 @@ class HealingBedroomStack(Stack):
             layer_version_name="healing-bedroom-common",
         )
         self.notifier_lambda = self._create_lambda_notifier()
+        self.ingestion_lambda = self._create_ingestion_lambda()
+        self.ingestion_scheduler = self._create_ingestion_scheduler()
         self.budget_alarm = self._create_budget_alarm()
 
         # Apply tags to all resources
@@ -93,6 +100,21 @@ class HealingBedroomStack(Stack):
                 type=dynamodb.AttributeType.STRING
             ),
             projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # Phase 2: Global Secondary Index on content_hash for deduplication
+        table.add_global_secondary_index(
+            index_name="GSI_ContentHash",
+            partition_key=dynamodb.Attribute(
+                name="content_hash",
+                type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="created_at",
+                type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.INCLUDE,
+            non_key_attributes=["source_url", "item_id"],
         )
 
         return table
@@ -174,7 +196,10 @@ class HealingBedroomStack(Stack):
                     "dynamodb:Query",
                     "dynamodb:Scan",
                 ],
-                resources=[self.dynamodb_table.table_arn],
+                resources=[
+                    self.dynamodb_table.table_arn,
+                    f"{self.dynamodb_table.table_arn}/index/*",
+                ],
             )
         )
 
@@ -220,6 +245,32 @@ class HealingBedroomStack(Stack):
                 ],
                 resources=[
                     f"arn:aws:logs:{self.region}:{self.account}:log-group:{config.LOG_GROUP_NAME}-*:*"
+                ],
+            )
+        )
+
+        # Phase 2: SQS permissions for dead-letter queue
+        role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "sqs:SendMessage",
+                ],
+                resources=[
+                    f"arn:aws:sqs:{self.region}:{self.account}:{config.SQS_DLQ_NAME}"
+                ],
+            )
+        )
+
+        # Phase 2: SNS permissions for ingestion alerts
+        role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "sns:Publish",
+                ],
+                resources=[
+                    f"arn:aws:sns:{self.region}:{self.account}:{config.SNS_TOPIC_INGESTION_ALERTS}"
                 ],
             )
         )
@@ -275,6 +326,70 @@ class HealingBedroomStack(Stack):
         self.sns_topic.add_subscription(sns_subs.LambdaSubscription(notifier))
 
         return notifier
+
+    def _create_ingestion_sns_topic(self) -> sns.Topic:
+        """Create SNS topic for ingestion pipeline alerts."""
+        topic = sns.Topic(
+            self,
+            "IngestionAlertsTopic",
+            topic_name=config.SNS_TOPIC_INGESTION_ALERTS,
+            display_name="Healing Bedroom Ingestion Alerts",
+        )
+        return topic
+
+    def _create_sqs_dlq(self) -> sqs.Queue:
+        """Create SQS dead-letter queue for failed ingestion items."""
+        dlq = sqs.Queue(
+            self,
+            "IngestionDLQ",
+            queue_name=config.SQS_DLQ_NAME,
+            retention_period=Duration.hours(96),  # 4 days
+            visibility_timeout=Duration.seconds(config.SQS_DLQ_VISIBILITY_TIMEOUT),
+            enforce_ssl=True,
+        )
+        return dlq
+
+    def _create_ingestion_lambda(self) -> lambda_.Function:
+        """Create Lambda function for Phase 2 content ingestion pipeline."""
+        ingestion_lambda = lambda_.Function(
+            self,
+            "IngestionLambda",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="lambda_function.lambda_handler",
+            code=lambda_.Code.from_asset("src/lambdas/ingestion"),
+            role=self.lambda_role,
+            timeout=Duration.seconds(600),  # 10 minutes for pipeline processing
+            memory_size=512,
+            log_retention=logs.RetentionDays.ONE_WEEK,
+            layers=[self.shared_layer],
+            function_name=config.LAMBDA_INGESTION_NAME,
+            environment={
+                "DYNAMODB_TABLE": config.DYNAMODB_TABLE_NAME,
+                "S3_BUCKET": config.get_bucket_name(),
+                "SQS_DLQ_URL": self.dlq.queue_url,
+                "SNS_INGESTION_TOPIC": self.sns_ingestion_topic.topic_arn,
+            },
+        )
+        return ingestion_lambda
+
+    def _create_ingestion_scheduler(self) -> events.Rule:
+        """Create EventBridge Scheduler rule for periodic ingestion."""
+        rule = events.Rule(
+            self,
+            "IngestionScheduler",
+            schedule=events.Schedule.expression(f"cron({config.INGESTION_SCHEDULE_CRON})"),
+            description="Trigger content ingestion pipeline on schedule",
+        )
+
+        # Add Lambda as target
+        rule.add_target(targets.LambdaFunction(self.ingestion_lambda))
+
+        # Grant EventBridge permission to invoke Lambda
+        self.ingestion_lambda.grant_invoke(
+            iam.ServicePrincipal("events.amazonaws.com")
+        )
+
+        return rule
 
     def _create_budget_alarm(self) -> budgets.CfnBudget:
         """Create AWS Budget for cost monitoring."""

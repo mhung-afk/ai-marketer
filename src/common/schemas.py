@@ -4,8 +4,10 @@ Data Schema Definitions
 This module defines DynamoDB item schemas and validation logic.
 """
 
-from typing import TypedDict, Optional
+from typing import Optional, Dict, Any
 from enum import Enum
+from datetime import datetime
+from pydantic import BaseModel, Field
 
 from common import config
 
@@ -18,9 +20,78 @@ class ItemStatus(Enum):
     APPROVED = "APPROVED"  # Approved by human review
     POSTED = "POSTED"  # Posted to social media
     FAILED = "FAILED"  # Processing failed
+    ERROR = "ERROR"  # Processing error
 
 
-class ContentItem(TypedDict, total=False):
+class SourcePlatform(str, Enum):
+    """Social media source platforms for Phase 2 content ingestion."""
+    TIKTOK = "tiktok"
+    INSTAGRAM = "instagram"
+    FACEBOOK = "facebook"
+
+
+class ContentStatus(str, Enum):
+    """Content processing status for Phase 2."""
+    RAW = "RAW"
+    APPROVED = "APPROVED"
+    PUBLISHED = "PUBLISHED"
+    REJECTED = "REJECTED"
+    ERROR = "ERROR"
+
+
+class CaptureTone(str, Enum):
+    """AI caption tone variations for Phase 2."""
+    CALMING = "calming"
+    MOTIVATIONAL = "motivational"
+    AESTHETIC = "aesthetic"
+    ASPIRATIONAL = "aspirational"
+
+
+class ContentItem(BaseModel):
+    """Pydantic model for Phase 2 content ingestion items."""
+    item_id: str
+    source_platform: SourcePlatform
+    source_url: str
+    source_post_id: Optional[str] = None
+    original_caption: str
+    ai_caption_vi: Optional[str] = None
+    ai_caption_tone: Optional[CaptureTone] = None
+    s3_image_key: Optional[str] = None
+    cloudfront_url: Optional[str] = None
+    content_hash: Optional[str] = None
+    image_size_bytes: Optional[int] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
+    status: ContentStatus = ContentStatus.RAW
+    error_reason: Optional[str] = None
+    retry_count: int = 0
+    created_at: str
+    processed_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    ttl: Optional[int] = None
+
+    class Config:
+        use_enum_values = True
+
+
+class IngestionRun(BaseModel):
+    """Pydantic model for tracking Phase 2 ingestion run metadata."""
+    run_id: str
+    source_platform: SourcePlatform
+    items_scraped: int = 0
+    items_deduplicated: int = 0
+    items_processed: int = 0
+    items_failed: int = 0
+    started_at: str
+    completed_at: Optional[str] = None
+    errors: list[str] = Field(default_factory=list)
+
+    class Config:
+        use_enum_values = True
+
+
+class ContentItemTypedDict(dict):
     """
     DynamoDB item schema for content storage.
     

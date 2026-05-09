@@ -59,11 +59,53 @@ CLOUDFRONT_CACHE_TTL_METADATA = 3600
 # SNS Topics
 # ============================================================================
 SNS_TOPIC_BUDGET_ALERTS = "healing-bedroom-budget-alerts"
+SNS_TOPIC_INGESTION_ALERTS = "healing-bedroom-ingestion-alerts"
 
 # ============================================================================
 # Lambda Functions
 # ============================================================================
 LAMBDA_NOTIFIER_NAME = "healing-bedroom-notifier"
+LAMBDA_INGESTION_NAME = "healing-bedroom-ingestion"
+
+# ============================================================================
+# Phase 2: Content Ingestion Pipeline
+# ============================================================================
+INGESTION_SCHEDULE_CRON = os.getenv("INGESTION_SCHEDULE_CRON", "0 */6 * * ? *")
+
+# Apify configuration for social media scraping
+SOURCES_CONFIG = {
+    "tiktok": {
+        "actor_id": "sKvq8dqWIB7QvZyPf",
+        "options": {
+            "hashtags": ["bedroom", "sleep", "selfcare", "wellness"],
+            "max_posts": 20,
+            "sort_type": "latest"
+        }
+    },
+    "instagram": {
+        "actor_id": "apify/instagram-hashtag-scraper",
+        "options": {
+            "hashtags": ["bedroominspo", "sleepwellness", "bedroomgoals"],
+            "max_posts": 20,
+            "sort_type": "latest"
+        }
+    },
+    "facebook": {
+        "actor_id": "apify/facebook-graph-scraper",
+        "options": {
+            "hashtags": ["bedroom", "sleep", "wellness"],
+            "max_posts": 15
+        }
+    }
+}
+
+# SQS Dead-Letter Queue
+SQS_DLQ_NAME = "healing-bedroom-ingestion-dlq"
+SQS_DLQ_RETENTION_SECONDS = 345600  # 4 days
+SQS_DLQ_VISIBILITY_TIMEOUT = 300  # 5 minutes
+
+# EventBridge
+EVENTBRIDGE_SCHEDULER_NAME = "healing-bedroom-ingestion-scheduler"
 
 # ============================================================================
 # IAM Configuration
