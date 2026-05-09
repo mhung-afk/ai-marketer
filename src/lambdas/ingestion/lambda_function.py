@@ -10,7 +10,15 @@ import logging
 from typing import Dict, Any
 from datetime import datetime, timezone
 
+import sys
+import os
+import json
+import logging
 import boto3
+
+# Handle both direct execution and module imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+
 from common import config
 from common.utils import (
     generate_item_id,
@@ -18,15 +26,24 @@ from common.utils import (
     get_parameter,
     send_ingestion_alert
 )
-from common.schemas import ContentItem, ContentStatus, SourcePlatform, CaptureTone
+from common.schemas import ContentItem, ContentStatus, CaptureTone
 from common.error_handlers import IngestionError, ApifyError, ClaudeError
 
-# Import local modules (avoid conflict with apify-client package)
-from . import apify_client
-from . import claude_caption_generator
-from . import image_processor
-from . import deduplication
-from . import dynamodb_storage
+# Import local modules (from same directory)
+if __name__ != "__main__":
+    # When imported as a module
+    from . import apify_client
+    from . import claude_caption_generator
+    from . import image_processor
+    from . import deduplication
+    from . import dynamodb_storage
+else:
+    # When run directly
+    import apify_client
+    import claude_caption_generator
+    import image_processor
+    import deduplication
+    import dynamodb_storage
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -220,13 +237,13 @@ class IngestionPipeline:
             }
 
 
-def lambda_handler(event, context):
+def lambda_handler(event, context=None):
     """
     AWS Lambda handler for content ingestion pipeline.
 
     Args:
         event: Lambda event (from EventBridge)
-        context: Lambda context
+        context: Lambda context (unused)
 
     Returns:
         Response with status and metrics

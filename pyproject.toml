@@ -24,7 +24,7 @@ extend-exclude = '''
 python_version = "3.12"
 ignore_missing_imports = true
 no_implicit_optional = true
-exclude = ["venv", "cdk.out", "\.specify"]
+exclude = ["venv", "cdk.out", ".specify"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -84,16 +84,15 @@ Keep the caption to max 300 characters."""
             logger.info(f"Generated caption: {caption[:50]}...")
             return caption
 
-        except APIError as e:
-            if e.status_code == 401:
+        except Exception as e:
+            # Check for status code (APIError or mock objects)
+            status_code = getattr(e, 'status_code', None)
+            if status_code == 401:
                 raise ClaudeError("Invalid API key")
-            elif e.status_code == 429:
+            elif status_code == 429:
                 raise ClaudeError("Rate limit exceeded")
             else:
-                raise ClaudeError(f"API error: {e}")
-
-        except Exception as e:
-            raise ClaudeError(f"Failed to generate caption: {e}")
+                raise ClaudeError(f"Failed to generate caption: {e}")
 
     def parse_caption_response(self, response_text: str) -> tuple[str, list[str]]:
         """

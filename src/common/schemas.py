@@ -7,7 +7,7 @@ This module defines DynamoDB item schemas and validation logic.
 from typing import Optional, Dict, Any
 from enum import Enum
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from common import config
 
@@ -71,8 +71,7 @@ class ContentItem(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
     ttl: Optional[int] = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class IngestionRun(BaseModel):
@@ -87,8 +86,7 @@ class IngestionRun(BaseModel):
     completed_at: Optional[str] = None
     errors: list[str] = Field(default_factory=list)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ContentItemTypedDict(dict):
