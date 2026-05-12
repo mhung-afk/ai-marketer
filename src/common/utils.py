@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def generate_item_id() -> str:
     """
     Generate a unique item ID using UUID v4.
-    
+
     Returns:
         A new UUID v4 string.
     """
@@ -31,10 +31,10 @@ def generate_item_id() -> str:
 def get_iso8601_timestamp(dt: Optional[datetime] = None) -> str:
     """
     Get current timestamp in ISO 8601 format (UTC).
-    
+
     Args:
         dt: Optional datetime object. If not provided, uses current UTC time.
-    
+
     Returns:
         ISO 8601 formatted timestamp string.
     """
@@ -46,22 +46,19 @@ def get_iso8601_timestamp(dt: Optional[datetime] = None) -> str:
 def get_parameter(parameter_name: str, with_decryption: bool = False) -> Optional[str]:
     """
     Retrieve a single parameter from AWS Systems Manager Parameter Store.
-    
+
     Args:
         parameter_name: Name of the parameter to retrieve.
         with_decryption: Whether to decrypt the parameter value.
-    
+
     Returns:
         The parameter value, or None if not found.
-    
+
     Raises:
         ClientError: If AWS API call fails.
     """
     try:
-        response = ssm_client.get_parameter(
-            Name=parameter_name,
-            WithDecryption=with_decryption
-        )
+        response = ssm_client.get_parameter(Name=parameter_name, WithDecryption=with_decryption)
         logger.info(f"Successfully retrieved parameter: {parameter_name}")
         return response["Parameter"]["Value"]
     except ClientError as e:
@@ -73,19 +70,18 @@ def get_parameter(parameter_name: str, with_decryption: bool = False) -> Optiona
 
 
 def get_parameters(
-    parameter_names: list[str],
-    with_decryption: bool = False
+    parameter_names: list[str], with_decryption: bool = False
 ) -> Dict[str, Optional[str]]:
     """
     Retrieve multiple parameters from AWS Systems Manager Parameter Store.
-    
+
     Args:
         parameter_names: List of parameter names to retrieve.
         with_decryption: Whether to decrypt parameter values.
-    
+
     Returns:
         Dictionary mapping parameter names to values. Missing parameters map to None.
-    
+
     Raises:
         ClientError: If AWS API call fails.
     """
@@ -93,10 +89,7 @@ def get_parameters(
         return {}
 
     try:
-        response = ssm_client.get_parameters(
-            Names=parameter_names,
-            WithDecryption=with_decryption
-        )
+        response = ssm_client.get_parameters(Names=parameter_names, WithDecryption=with_decryption)
 
         # Create result dictionary with all requested parameters
         results = {name: None for name in parameter_names}
@@ -109,7 +102,9 @@ def get_parameters(
         if response["InvalidParameters"]:
             logger.warning(f"Parameters not found: {response['InvalidParameters']}")
 
-        logger.info(f"Successfully retrieved {len(response['Parameters'])} of {len(parameter_names)} parameters")
+        logger.info(
+            f"Successfully retrieved {len(response['Parameters'])} of {len(parameter_names)} parameters"
+        )
         return results
 
     except ClientError as e:
@@ -120,10 +115,10 @@ def get_parameters(
 def parse_json(json_string: str) -> Optional[Dict[str, Any]]:
     """
     Parse JSON string safely.
-    
+
     Args:
         json_string: JSON string to parse.
-    
+
     Returns:
         Parsed dictionary, or None if parsing fails.
     """
@@ -152,10 +147,8 @@ def to_json(obj: Any, indent: bool = False) -> str:
 # Phase 2: Content Ingestion Pipeline Utilities
 # ============================================================================
 
-def generate_cloudfront_url(
-    distribution_domain: str,
-    s3_object_key: str
-) -> str:
+
+def generate_cloudfront_url(distribution_domain: str, s3_object_key: str) -> str:
     """
     Generate a CloudFront public URL for an S3 object.
 
@@ -172,9 +165,7 @@ def generate_cloudfront_url(
 
 
 def get_dynamodb_gsi_by_hash(
-    table_name: str,
-    content_hash: str,
-    gsi_name: str = "GSI_ContentHash"
+    table_name: str, content_hash: str, gsi_name: str = "GSI_ContentHash"
 ) -> Optional[Dict[str, Any]]:
     """
     Query DynamoDB GSI to check for duplicate content by hash.
@@ -196,7 +187,7 @@ def get_dynamodb_gsi_by_hash(
         response = table.query(
             IndexName=gsi_name,
             KeyConditionExpression="content_hash = :hash",
-            ExpressionAttributeValues={":hash": content_hash}
+            ExpressionAttributeValues={":hash": content_hash},
         )
 
         if response.get("Items"):
@@ -214,7 +205,7 @@ def send_ingestion_alert(
     alert_type: str,
     error_message: str,
     retry_count: int = 0,
-    context_data: Optional[Dict[str, Any]] = None
+    context_data: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """
     Send ingestion pipeline error alert to Telegram via SNS.
@@ -252,7 +243,7 @@ def send_ingestion_alert(
         sns.publish(
             TopicArn=f"arn:aws:sns:{config.AWS_REGION}:{config.AWS_ACCOUNT_ID}:{config.SNS_TOPIC_INGESTION_ALERTS}",
             Subject=f"Ingestion Error: {alert_type}",
-            Message=message
+            Message=message,
         )
         logger.info(f"Ingestion alert sent for {alert_type}")
         return True

@@ -48,9 +48,7 @@ class ImageProcessor:
         """
         try:
             response = requests.get(
-                image_url,
-                timeout=30,
-                headers={"User-Agent": "Healing-Bedroom-Bot/1.0"}
+                image_url, timeout=30, headers={"User-Agent": "Healing-Bedroom-Bot/1.0"}
             )
             response.raise_for_status()
 
@@ -59,9 +57,7 @@ class ImageProcessor:
             extension = self._extract_extension(content_type, image_url)
 
             if extension not in self.SUPPORTED_EXTENSIONS:
-                raise ImageProcessingError(
-                    f"Unsupported image type: {extension}"
-                )
+                raise ImageProcessingError(f"Unsupported image type: {extension}")
 
             logger.info(f"Downloaded image: {len(response.content)} bytes")
             return response.content, extension
@@ -87,10 +83,7 @@ class ImageProcessor:
         return hash_value
 
     def upload_to_s3(
-        self,
-        image_bytes: bytes,
-        extension: str,
-        bucket_name: Optional[str] = None
+        self, image_bytes: bytes, extension: str, bucket_name: Optional[str] = None
     ) -> str:
         """
         Upload image to S3 and return CloudFront URL.
@@ -121,7 +114,7 @@ class ImageProcessor:
                 Key=object_key,
                 Body=image_bytes,
                 ContentType=self._get_content_type(extension),
-                ServerSideEncryption="AES256"
+                ServerSideEncryption="AES256",
             )
 
             logger.info(f"Uploaded to S3: s3://{bucket_name}/{object_key}")
@@ -166,6 +159,6 @@ class ImageProcessor:
             "jpeg": "image/jpeg",
             "png": "image/png",
             "gif": "image/gif",
-            "webp": "image/webp"
+            "webp": "image/webp",
         }
         return types.get(extension, "application/octet-stream")

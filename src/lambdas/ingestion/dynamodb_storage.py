@@ -68,10 +68,7 @@ class DynamoDBStorage:
             raise S3UploadError(f"Failed to save item to DynamoDB: {e}")
 
     def update_content_item_with_caption(
-        self,
-        item_id: str,
-        ai_caption_vi: str,
-        ai_caption_tone: str
+        self, item_id: str, ai_caption_vi: str, ai_caption_tone: str
     ) -> bool:
         """
         Update item with AI-generated caption.
@@ -94,8 +91,8 @@ class DynamoDBStorage:
                 ExpressionAttributeValues={
                     ":cap": ai_caption_vi,
                     ":tone": ai_caption_tone,
-                    ":now": get_iso8601_timestamp()
-                }
+                    ":now": get_iso8601_timestamp(),
+                },
             )
 
             logger.info(f"Updated caption for item: {item_id}")
@@ -105,10 +102,7 @@ class DynamoDBStorage:
             raise S3UploadError(f"Failed to update item caption: {e}")
 
     def update_content_item_with_error(
-        self,
-        item_id: str,
-        error_reason: str,
-        retry_count: int = 0
+        self, item_id: str, error_reason: str, retry_count: int = 0
     ) -> bool:
         """
         Update item to ERROR status with error details.
@@ -128,15 +122,13 @@ class DynamoDBStorage:
             self.table.update_item(
                 Key={"item_id": item_id},
                 UpdateExpression="SET #status = :status, error_reason = :reason, retry_count = :retries, updated_at = :now",
-                ExpressionAttributeNames={
-                    "#status": "status"
-                },
+                ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={
                     ":status": ContentStatus.ERROR.value,
                     ":reason": error_reason,
                     ":retries": retry_count,
-                    ":now": get_iso8601_timestamp()
-                }
+                    ":now": get_iso8601_timestamp(),
+                },
             )
 
             logger.error(f"Marked item as ERROR: {item_id} - {error_reason}")
@@ -163,14 +155,10 @@ class DynamoDBStorage:
             response = self.table.query(
                 IndexName="GSI1_Status",
                 KeyConditionExpression="#status = :status",
-                ExpressionAttributeNames={
-                    "#status": "status"
-                },
-                ExpressionAttributeValues={
-                    ":status": status
-                },
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":status": status},
                 Limit=limit,
-                ScanIndexForward=False  # Newest first
+                ScanIndexForward=False,  # Newest first
             )
 
             items = response.get("Items", [])

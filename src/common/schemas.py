@@ -6,7 +6,6 @@ This module defines DynamoDB item schemas and validation logic.
 
 from typing import Optional, Dict, Any
 from enum import Enum
-from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
 from common import config
@@ -14,6 +13,7 @@ from common import config
 
 class ItemStatus(Enum):
     """Content item status throughout the pipeline."""
+
     RAW = "RAW"  # Newly scraped, awaiting processing
     PROCESSING = "PROCESSING"  # Currently being processed
     DRAFT = "DRAFT"  # Generated content awaiting approval
@@ -25,6 +25,7 @@ class ItemStatus(Enum):
 
 class SourcePlatform(str, Enum):
     """Social media source platforms for Phase 2 content ingestion."""
+
     TIKTOK = "tiktok"
     INSTAGRAM = "instagram"
     FACEBOOK = "facebook"
@@ -32,6 +33,7 @@ class SourcePlatform(str, Enum):
 
 class ContentStatus(str, Enum):
     """Content processing status for Phase 2."""
+
     RAW = "RAW"
     APPROVED = "APPROVED"
     PUBLISHED = "PUBLISHED"
@@ -41,6 +43,7 @@ class ContentStatus(str, Enum):
 
 class CaptureTone(str, Enum):
     """AI caption tone variations for Phase 2."""
+
     CALMING = "calming"
     MOTIVATIONAL = "motivational"
     AESTHETIC = "aesthetic"
@@ -49,6 +52,7 @@ class CaptureTone(str, Enum):
 
 class ContentItem(BaseModel):
     """Pydantic model for Phase 2 content ingestion items."""
+
     item_id: str
     source_platform: SourcePlatform
     source_url: str
@@ -76,6 +80,7 @@ class ContentItem(BaseModel):
 
 class IngestionRun(BaseModel):
     """Pydantic model for tracking Phase 2 ingestion run metadata."""
+
     run_id: str
     source_platform: SourcePlatform
     items_scraped: int = 0
@@ -92,7 +97,7 @@ class IngestionRun(BaseModel):
 class ContentItemTypedDict(dict):
     """
     DynamoDB item schema for content storage.
-    
+
     Attributes:
         item_id: Unique identifier (UUID v4)
         status: Current status in the pipeline
@@ -115,6 +120,7 @@ class ContentItemTypedDict(dict):
         error_log: JSON string of error details if failed
         retry_count: Number of retry attempts
     """
+
     # Core attributes (required)
     item_id: str
     status: str
@@ -223,10 +229,10 @@ class DynamoDBSchema:
     def validate_item(item: ContentItem) -> tuple[bool, Optional[str]]:
         """
         Validate a content item for required attributes.
-        
+
         Args:
             item: ContentItem to validate
-        
+
         Returns:
             Tuple of (is_valid, error_message)
         """
@@ -251,14 +257,14 @@ class DynamoDBSchema:
     ) -> ContentItem:
         """
         Create a new RAW item (Phase 1 foundation).
-        
+
         Args:
             item_id: Unique identifier
             created_at: ISO 8601 creation timestamp
             niche: Content niche
             source_platform: Scraping source platform
             source_url: Source content URL
-        
+
         Returns:
             ContentItem ready for DynamoDB insert
         """

@@ -17,33 +17,40 @@ T = TypeVar("T")
 # Custom Exceptions
 # ============================================================================
 
+
 class IngestionError(Exception):
     """Base exception for content ingestion pipeline."""
+
     pass
 
 
 class ApifyError(IngestionError):
     """Error from Apify API client."""
+
     pass
 
 
 class ClaudeError(IngestionError):
     """Error from Anthropic Claude API."""
+
     pass
 
 
 class ImageProcessingError(IngestionError):
     """Error downloading, hashing, or processing images."""
+
     pass
 
 
 class DeduplicationError(IngestionError):
     """Error during content deduplication check."""
+
     pass
 
 
 class S3UploadError(IngestionError):
     """Error uploading content to S3."""
+
     pass
 
 
@@ -51,12 +58,9 @@ class S3UploadError(IngestionError):
 # Retry Logic
 # ============================================================================
 
+
 def retry_with_backoff(
-    func: Callable[..., T],
-    *args: Any,
-    max_retries: int = 3,
-    base_delay: int = 1,
-    **kwargs: Any
+    func: Callable[..., T], *args: Any, max_retries: int = 3, base_delay: int = 1, **kwargs: Any
 ) -> T:
     """
     Execute function with exponential backoff retry logic.
@@ -84,10 +88,8 @@ def retry_with_backoff(
         except Exception as e:
             last_exception = e
             if attempt < max_retries - 1:
-                delay = base_delay * (2 ** attempt)
-                logger.warning(
-                    f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s..."
-                )
+                delay = base_delay * (2**attempt)
+                logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
                 time.sleep(delay)
             else:
                 logger.error(f"All {max_retries} attempts failed")

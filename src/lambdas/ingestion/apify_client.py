@@ -27,16 +27,9 @@ class ApifyClient:
             api_token: Apify API token for authentication
         """
         self.api_token = api_token
-        self.headers = {
-            "Authorization": f"Bearer {api_token}",
-            "Content-Type": "application/json"
-        }
+        self.headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
 
-    def start_actor_run(
-        self,
-        actor_id: str,
-        input_params: Dict[str, Any]
-    ) -> str:
+    def start_actor_run(self, actor_id: str, input_params: Dict[str, Any]) -> str:
         """
         Start an Apify actor run.
 
@@ -53,12 +46,7 @@ class ApifyClient:
         url = f"{self.BASE_URL}/acts/{actor_id}/runs"
 
         try:
-            response = requests.post(
-                url,
-                headers=self.headers,
-                json=input_params,
-                timeout=30
-            )
+            response = requests.post(url, headers=self.headers, json=input_params, timeout=30)
 
             if response.status_code == 403:
                 raise ApifyError(f"Authentication failed: {response.text}")
@@ -97,11 +85,7 @@ class ApifyClient:
         url = f"{self.BASE_URL}/actor-runs/{run_id}"
 
         try:
-            response = requests.get(
-                url,
-                headers=self.headers,
-                timeout=30
-            )
+            response = requests.get(url, headers=self.headers, timeout=30)
             response.raise_for_status()
 
             data = response.json()
@@ -110,11 +94,7 @@ class ApifyClient:
         except requests.RequestException as e:
             raise ApifyError(f"Failed to get run status: {e}")
 
-    def retrieve_results(
-        self,
-        run_id: str,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def retrieve_results(self, run_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """
         Retrieve results from a completed Apify actor run.
 
@@ -131,17 +111,9 @@ class ApifyClient:
         url = f"{self.BASE_URL}/actor-runs/{run_id}/dataset/items"
 
         try:
-            params = {
-                "limit": limit,
-                "format": "json"
-            }
+            params = {"limit": limit, "format": "json"}
 
-            response = requests.get(
-                url,
-                headers=self.headers,
-                params=params,
-                timeout=30
-            )
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
 
             if response.status_code == 404:
                 logger.warning(f"No dataset found for run {run_id}")

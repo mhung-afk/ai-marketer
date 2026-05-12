@@ -19,6 +19,7 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_budgets as budgets,
+    aws_cloudwatch as cloudwatch,
     Duration,
     RemovalPolicy,
     Tags,
@@ -39,7 +40,7 @@ class HealingBedroomStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         """
         Initialize the Healing Bedroom infrastructure stack.
-        
+
         Args:
             scope: CDK scope (App)
             construct_id: Stack identifier
@@ -57,7 +58,8 @@ class HealingBedroomStack(Stack):
         self.sns_ingestion_topic = self._create_ingestion_sns_topic()
         self.dlq = self._create_sqs_dlq()
         self.shared_layer = lambda_.LayerVersion(
-            self, "SharedCommonLayer",
+            self,
+            "SharedCommonLayer",
             code=lambda_.Code.from_asset("src/layers/common"),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
             description="Shared utilities, config, SSM helpers",
@@ -67,6 +69,7 @@ class HealingBedroomStack(Stack):
         self.ingestion_lambda = self._create_ingestion_lambda()
         self.ingestion_scheduler = self._create_ingestion_scheduler()
         self.budget_alarm = self._create_budget_alarm()
+        self.ingestion_dashboard = self._create_ingestion_dashboard()
 
         # Apply tags to all resources
         for key, value in config.get_tags().items():
@@ -78,10 +81,7 @@ class HealingBedroomStack(Stack):
             self,
             "HealingBedroomContentTable",
             table_name=config.DYNAMODB_TABLE_NAME,
-            partition_key=dynamodb.Attribute(
-                name="item_id",
-                type=dynamodb.AttributeType.STRING
-            ),
+            partition_key=dynamodb.Attribute(name="item_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.RETAIN,
             point_in_time_recovery=False,
@@ -91,14 +91,8 @@ class HealingBedroomStack(Stack):
         # Global Secondary Index on status and created_at
         table.add_global_secondary_index(
             index_name="GSI1_Status",
-            partition_key=dynamodb.Attribute(
-                name="status",
-                type=dynamodb.AttributeType.STRING
-            ),
-            sort_key=dynamodb.Attribute(
-                name="created_at",
-                type=dynamodb.AttributeType.STRING
-            ),
+            partition_key=dynamodb.Attribute(name="status", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="created_at", type=dynamodb.AttributeType.STRING),
             projection_type=dynamodb.ProjectionType.ALL,
         )
 
@@ -106,13 +100,9 @@ class HealingBedroomStack(Stack):
         table.add_global_secondary_index(
             index_name="GSI_ContentHash",
             partition_key=dynamodb.Attribute(
-                name="content_hash",
-                type=dynamodb.AttributeType.STRING
+                name="content_hash", type=dynamodb.AttributeType.STRING
             ),
-            sort_key=dynamodb.Attribute(
-                name="created_at",
-                type=dynamodb.AttributeType.STRING
-            ),
+            sort_key=dynamodb.Attribute(name="created_at", type=dynamodb.AttributeType.STRING),
             projection_type=dynamodb.ProjectionType.INCLUDE,
             non_key_attributes=["source_url", "item_id"],
         )
@@ -160,9 +150,7 @@ class HealingBedroomStack(Stack):
         self.s3_bucket.add_to_resource_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                principals=[
-                    iam.ServicePrincipal("cloudfront.amazonaws.com", region=self.region)
-                ],
+                principals=[iam.ServicePrincipal("cloudfront.amazonaws.com", region=self.region)],
                 actions=["s3:GetObject"],
                 resources=[self.s3_bucket.arn_for_objects("*")],
                 conditions={
@@ -256,9 +244,7 @@ class HealingBedroomStack(Stack):
                 actions=[
                     "sqs:SendMessage",
                 ],
-                resources=[
-                    f"arn:aws:sqs:{self.region}:{self.account}:{config.SQS_DLQ_NAME}"
-                ],
+                resources=[f"arn:aws:sqs:{self.region}:{self.account}:{config.SQS_DLQ_NAME}"],
             )
         )
 
@@ -302,7 +288,7 @@ class HealingBedroomStack(Stack):
         """Create Lambda function for sending Telegram notifications."""
         notifier = lambda_.Function(
             self,
-            'LambdaNotifier',
+            "LambdaNotifier",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="lambda_function.lambda_handler",
             code=lambda_.Code.from_asset("src/lambdas/notifier"),
@@ -310,17 +296,15 @@ class HealingBedroomStack(Stack):
             timeout=Duration.seconds(30),
             memory_size=256,
             log_retention=logs.RetentionDays.ONE_WEEK,
-            layers=[self.shared_layer]
+            layers=[self.shared_layer],
         )
 
-        notifier.add_to_role_policy(iam.PolicyStatement(
-            actions=[
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents"
-            ],
-            resources=["*"]
-        ))
+        notifier.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+                resources=["*"],
+            )
+        )
 
         # Subscribe Lambda to SNS topic
         self.sns_topic.add_subscription(sns_subs.LambdaSubscription(notifier))
@@ -385,11 +369,101 @@ class HealingBedroomStack(Stack):
         rule.add_target(targets.LambdaFunction(self.ingestion_lambda))
 
         # Grant EventBridge permission to invoke Lambda
-        self.ingestion_lambda.grant_invoke(
-            iam.ServicePrincipal("events.amazonaws.com")
-        )
+        self.ingestion_lambda.grant_invoke(iam.ServicePrincipal("events.amazonaws.com"))
 
         return rule
+
+    def _create_ingestion_dashboard(self) -> cloudwatch.Dashboard:
+        """Create CloudWatch dashboard for ingestion pipeline monitoring."""
+        dashboard = cloudwatch.Dashboard(
+            self, "IngestionDashboard", dashboard_name="HealingBedroom-Ingestion-Pipeline"
+        )
+
+        # Add metrics widgets
+        processed_items = cloudwatch.Metric(
+            namespace=config.CLOUDWATCH_METRICS_NAMESPACE,
+            metric_name="processed_items",
+            statistic="Sum",
+            period=Duration.minutes(1),
+            label="Items Processed",
+        )
+
+        items_scraped = cloudwatch.Metric(
+            namespace=config.CLOUDWATCH_METRICS_NAMESPACE,
+            metric_name="items_scraped",
+            statistic="Sum",
+            period=Duration.minutes(1),
+            label="Items Scraped",
+        )
+
+        duplicate_skipped = cloudwatch.Metric(
+            namespace=config.CLOUDWATCH_METRICS_NAMESPACE,
+            metric_name="duplicate_skipped",
+            statistic="Sum",
+            period=Duration.minutes(1),
+            label="Duplicates Skipped",
+        )
+
+        errors_total = cloudwatch.Metric(
+            namespace=config.CLOUDWATCH_METRICS_NAMESPACE,
+            metric_name="errors_total",
+            statistic="Sum",
+            period=Duration.minutes(1),
+            label="Total Errors",
+        )
+
+        # DLQ message count
+        dlq_messages = cloudwatch.Metric(
+            namespace="AWS/SQS",
+            metric_name="ApproximateNumberOfMessagesVisible",
+            dimensions={"QueueName": config.SQS_DLQ_NAME},
+            statistic="Average",
+            period=Duration.minutes(1),
+            label="DLQ Messages",
+        )
+
+        # Lambda duration
+        lambda_duration = cloudwatch.Metric(
+            namespace="AWS/Lambda",
+            metric_name="Duration",
+            dimensions={"FunctionName": config.LAMBDA_INGESTION_NAME},
+            statistic="Average",
+            period=Duration.minutes(1),
+            label="Lambda Duration (ms)",
+        )
+
+        # Lambda error count
+        lambda_errors = cloudwatch.Metric(
+            namespace="AWS/Lambda",
+            metric_name="Errors",
+            dimensions={"FunctionName": config.LAMBDA_INGESTION_NAME},
+            statistic="Sum",
+            period=Duration.minutes(1),
+            label="Lambda Errors",
+        )
+
+        # Add widgets to dashboard
+        dashboard.add_widgets(
+            cloudwatch.GraphWidget(
+                title="Ingestion Pipeline Metrics",
+                left=[processed_items, items_scraped, duplicate_skipped],
+                right=[errors_total],
+                width=12,
+                height=6,
+            ),
+            cloudwatch.GraphWidget(
+                title="Dead-Letter Queue Status", left=[dlq_messages], width=12, height=6
+            ),
+            cloudwatch.GraphWidget(
+                title="Lambda Performance",
+                left=[lambda_duration],
+                right=[lambda_errors],
+                width=12,
+                height=6,
+            ),
+        )
+
+        return dashboard
 
     def _create_budget_alarm(self) -> budgets.CfnBudget:
         """Create AWS Budget for cost monitoring."""
@@ -399,13 +473,12 @@ class HealingBedroomStack(Stack):
             budget=budgets.CfnBudget.BudgetDataProperty(
                 budget_name=f"{config.PROJECT_NAME}-Monthly-Budget",
                 budget_limit=budgets.CfnBudget.SpendProperty(
-                    amount=config.BUDGET_LIMIT,
-                    unit="USD"
+                    amount=config.BUDGET_LIMIT, unit="USD"
                 ),
                 budget_type="COST",
                 time_period=budgets.CfnBudget.TimePeriodProperty(
                     start="1735689600",  # 2026-01-01 00:00:00 UTC (epoch seconds)
-                    end="3660825600",    # 2086-01-01 00:00:00 UTC (epoch seconds)
+                    end="3660825600",  # 2086-01-01 00:00:00 UTC (epoch seconds)
                 ),
                 time_unit="MONTHLY",
             ),
@@ -419,8 +492,7 @@ class HealingBedroomStack(Stack):
                     ),
                     subscribers=[
                         budgets.CfnBudget.SubscriberProperty(
-                            address=self.sns_topic.topic_arn,
-                            subscription_type="SNS"
+                            address=self.sns_topic.topic_arn, subscription_type="SNS"
                         )
                     ],
                 ),
@@ -433,8 +505,7 @@ class HealingBedroomStack(Stack):
                     ),
                     subscribers=[
                         budgets.CfnBudget.SubscriberProperty(
-                            address=self.sns_topic.topic_arn,
-                            subscription_type="SNS"
+                            address=self.sns_topic.topic_arn, subscription_type="SNS"
                         )
                     ],
                 ),

@@ -38,10 +38,7 @@ Format your response ONLY as:
         self.max_tokens = 300
 
     def generate_caption(
-        self,
-        original_caption: str,
-        source_platform: str,
-        tone: str = "aesthetic"
+        self, original_caption: str, source_platform: str, tone: str = "aesthetic"
     ) -> str:
         """
         Generate Vietnamese caption from original caption.
@@ -69,16 +66,10 @@ Keep the caption to max 300 characters."""
                     model=self.model,
                     max_tokens=self.max_tokens,
                     system=self.SYSTEM_PROMPT,
-                    messages=[
-                        {"role": "user", "content": user_message}
-                    ]
+                    messages=[{"role": "user", "content": user_message}],
                 )
 
-            response = retry_with_backoff(
-                call_claude,
-                max_retries=3,
-                base_delay=1
-            )
+            response = retry_with_backoff(call_claude, max_retries=3, base_delay=1)
 
             caption = response.content[0].text
             logger.info(f"Generated caption: {caption[:50]}...")
@@ -86,7 +77,7 @@ Keep the caption to max 300 characters."""
 
         except Exception as e:
             # Check for status code (APIError or mock objects)
-            status_code = getattr(e, 'status_code', None)
+            status_code = getattr(e, "status_code", None)
             if status_code == 401:
                 raise ClaudeError("Invalid API key")
             elif status_code == 429:

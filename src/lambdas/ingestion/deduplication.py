@@ -35,7 +35,7 @@ def check_duplicate_by_hash(content_hash: str) -> Tuple[bool, Optional[str]]:
         response = table.query(
             IndexName="GSI_ContentHash",
             KeyConditionExpression="content_hash = :hash",
-            ExpressionAttributeValues={":hash": content_hash}
+            ExpressionAttributeValues={":hash": content_hash},
         )
 
         if response.get("Items"):
@@ -73,8 +73,7 @@ def check_duplicate_by_url(source_url: str) -> Tuple[bool, Optional[str]]:
 
         # Query by GSI1_Status to find items with same source_url
         response = table.scan(
-            FilterExpression="source_url = :url",
-            ExpressionAttributeValues={":url": source_url}
+            FilterExpression="source_url = :url", ExpressionAttributeValues={":url": source_url}
         )
 
         if response.get("Items"):
