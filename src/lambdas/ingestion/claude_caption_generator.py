@@ -5,109 +5,96 @@ Generates brand-aligned Vietnamese captions with hashtags using Anthropic Claude
 """
 
 import logging
-from typing import Optional
-from anthropic import Anthropic, APIError
-from common import config
+from typing import Tuple, List
+
+from anthropic import Anthropic, APIError, RateLimitError, AuthenticationError
+
 from common.error_handlers import ClaudeError, retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
 
 class ClaudeClient:
-    """Client for generating Vietnamese captions using Claude Haiku."""
+    """Client for generating Vietnamese captions using Claude."""
 
     SYSTEM_PROMPT = """You are a creative copywriter for "Healing Bedroom", a Vietnamese wellness brand focused on bedroom aesthetics, sleep quality, and self-care.
 
-Your tone should be: calming, aspirational, wellness-focused, and authentic. Avoid hard selling.
+Your tone should be: calming, aspirational, wellness-focused, and authentic. Never hard sell.
 
-Your task: Transform original captions into brand-aligned Vietnamese captions with 3-5 relevant hashtags.
+Task: Transform the original caption into a beautiful Vietnamese caption that fits the brand voice.
+Include 3-5 relevant hashtags at the end.
 
-Format your response ONLY as:
-[Vietnamese caption here with natural language]
-#hashtag1 #hashtag2 #hashtag3"""
+Rules:
+- Output ONLY the caption + hashtags. No explanations.
+- Caption should be natural and warm.
+- Maximum 280 characters for the caption part."""
 
     def __init__(self, api_key: str):
-        """
-        Initialize Claude caption generator.
-
-        Args:
-            api_key: Anthropic API key
-        """
         self.client = Anthropic(api_key=api_key)
-        self.model = "claude-3-5-haiku-20241022"  # Latest Haiku model
-        self.max_tokens = 300
+        self.model = "claude-haiku-4-5"   # Latest fast model (as of 2026)
+        self.max_tokens = 400
 
     def generate_caption(
-        self, original_caption: str, source_platform: str, tone: str = "aesthetic"
+        self, 
+        original_caption: str, 
+        source_platform: str = "social",
+        tone: str = "aesthetic"
     ) -> str:
         """
-        Generate Vietnamese caption from original caption.
-
-        Args:
-            original_caption: Original caption from social media
-            source_platform: Source platform (tiktok, instagram, facebook)
-            tone: Caption tone (calming, motivational, aesthetic, aspirational)
-
-        Returns:
-            Vietnamese caption with hashtags
-
-        Raises:
-            ClaudeError: If API call fails
+        Generate Vietnamese brand-aligned caption.
         """
         user_message = f"""Original caption from {source_platform}: "{original_caption}"
 
-Generate a Vietnamese caption in {tone} tone. Include 3-5 relevant hashtags.
-Keep the caption to max 300 characters."""
+Create a calming, aspirational Vietnamese caption in {tone} tone for Healing Bedroom.
+Include 3-5 relevant hashtags at the end."""
 
         try:
-            # Use retry logic for API calls
             def call_claude():
                 return self.client.messages.create(
                     model=self.model,
                     max_tokens=self.max_tokens,
+                    temperature=0.7,
                     system=self.SYSTEM_PROMPT,
                     messages=[{"role": "user", "content": user_message}],
                 )
 
-            response = retry_with_backoff(call_claude, max_retries=3, base_delay=1)
+            response = retry_with_backoff(call_claude, max_retries=3, base_delay=1.5)
+            
+            caption_text = response.content[0].text.strip()
+            logger.info(f"Claude generated caption ({len(caption_text)} chars)")
+            return caption_text
 
-            caption = response.content[0].text
-            logger.info(f"Generated caption: {caption[:50]}...")
-            return caption
-
+        except AuthenticationError:
+            raise ClaudeError("Invalid Anthropic API key")
+        except RateLimitError:
+            raise ClaudeError("Rate limit exceeded - try again later")
+        except APIError as e:
+            raise ClaudeError(f"Anthropic API error: {e.message if hasattr(e, 'message') else str(e)}")
         except Exception as e:
-            # Check for status code (APIError or mock objects)
-            status_code = getattr(e, "status_code", None)
-            if status_code == 401:
-                raise ClaudeError("Invalid API key")
-            elif status_code == 429:
-                raise ClaudeError("Rate limit exceeded")
-            else:
-                raise ClaudeError(f"Failed to generate caption: {e}")
+            raise ClaudeError(f"Failed to generate caption: {str(e)}")
 
-    def parse_caption_response(self, response_text: str) -> tuple[str, list[str]]:
+    def parse_caption_response(self, response_text: str) -> Tuple[str, List[str]]:
         """
-        Parse Claude response to extract caption and hashtags.
-
-        Args:
-            response_text: Raw response from Claude
-
-        Returns:
-            Tuple of (vietnamese_caption, hashtags_list)
+        Robust parser for Claude response.
         """
-        lines = response_text.strip().split("\n")
+        if not response_text:
+            return "", []
 
-        caption = ""
+        lines = [line.strip() for line in response_text.strip().split("\n") if line.strip()]
+
+        caption_parts = []
         hashtags = []
 
         for line in lines:
-            line = line.strip()
             if line.startswith("#"):
-                # Extract hashtags
-                hashtags = line.split()
-            elif line:
-                # First non-hashtag line is the caption
-                if not caption:
-                    caption = line
+                # Extract all hashtags from this line
+                hashtags.extend([tag for tag in line.split() if tag.startswith("#")])
+            else:
+                caption_parts.append(line)
 
-        return caption, hashtags
+        caption = " ".join(caption_parts).strip()
+
+        # Clean duplicate hashtags
+        hashtags = list(dict.fromkeys(hashtags))  # preserve order
+
+        return caption, hashtags[:5]  # max 5 hashtags
