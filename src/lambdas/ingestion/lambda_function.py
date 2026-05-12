@@ -35,21 +35,11 @@ if __name__ != "__main__":
 else:
     import error_handlers as ingestion_error_handlers
 
-# Import local modules (from same directory)
-if __name__ != "__main__":
-    # When imported as a module
-    from . import apify_client
-    from . import claude_caption_generator
-    from . import image_processor
-    from . import deduplication
-    from . import dynamodb_storage
-else:
-    # When run directly
-    import apify_client
-    import claude_caption_generator
-    import image_processor
-    import deduplication
-    import dynamodb_storage
+import apify_actor_client
+import claude_caption_generator
+import image_processor
+import deduplication
+import dynamodb_storage
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -87,7 +77,7 @@ class IngestionPipeline:
         if not self.apify_token or not self.claude_key:
             raise IngestionError("Missing required API credentials in Parameter Store")
 
-        self.apify_client = apify_client.ApifyClient(self.apify_token)
+        self.apify_client = apify_actor_client.ApifyClientWrapper(self.apify_token)
         self.claude_client = claude_caption_generator.ClaudeClient(self.claude_key)
         self.image_processor = image_processor.ImageProcessor()
         self.storage = dynamodb_storage.DynamoDBStorage()
