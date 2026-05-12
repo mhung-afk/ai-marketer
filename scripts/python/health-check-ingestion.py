@@ -137,7 +137,7 @@ class HealthCheck:
 
         try:
             response = events_client.describe_rule(
-                Name=config.EVENTBRIDGE_SCHEDULER_NAME
+                Name="healing-bedroom-ingestion-scheduler"
             )
 
             state = response.get("State", "unknown")
@@ -158,7 +158,7 @@ class HealthCheck:
         except events_client.exceptions.ResourceNotFoundException:
             self.log_fail(
                 "EventBridge scheduler rule not found",
-                f"Rule name: {config.EVENTBRIDGE_SCHEDULER_NAME}",
+                "Rule name: healing-bedroom-ingestion-scheduler",
                 is_critical=True
             )
             return False

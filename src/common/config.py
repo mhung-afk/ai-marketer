@@ -18,7 +18,7 @@ AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID", "")
 # Project Names
 # ============================================================================
 PROJECT_NAME = "HealingBedroom"
-ENVIRONMENT = os.getenv("ENVIRONMENT_NAME", "phase1")
+ENVIRONMENT = os.getenv("ENVIRONMENT_NAME", "phase2")
 
 # ============================================================================
 # Parameter Store Paths
@@ -35,7 +35,6 @@ PARAM_FACEBOOK_PAGE_ACCESS_TOKEN = f"{PARAM_PREFIX}/facebook-page-access-token"
 # CloudWatch Log Groups
 # ============================================================================
 LOG_GROUP_NAME = "/aws/lambda/healing-bedroom"
-LOG_RETENTION_DAYS = 7
 
 # ============================================================================
 # DynamoDB
@@ -50,16 +49,10 @@ S3_BUCKET_SUFFIX = "ai-marketer"
 S3_LIFECYCLE_DAYS = 7
 
 # ============================================================================
-# CloudFront CDN
-# ============================================================================
-CLOUDFRONT_CACHE_TTL_DEFAULT = 86400
-CLOUDFRONT_CACHE_TTL_METADATA = 3600
-
-# ============================================================================
 # SNS Topics
 # ============================================================================
-SNS_TOPIC_BUDGET_ALERTS = "healing-bedroom-budget-alerts"
-SNS_TOPIC_INGESTION_ALERTS = "healing-bedroom-ingestion-alerts"
+SNS_TOPIC_ALERTS = "healing-bedroom-alerts"
+SNS_TOPIC_ALERTS_ARN = f"arn:aws:sns:{AWS_REGION}:{AWS_ACCOUNT_ID}:{SNS_TOPIC_ALERTS}"
 
 # ============================================================================
 # Lambda Functions
@@ -68,9 +61,9 @@ LAMBDA_NOTIFIER_NAME = "healing-bedroom-notifier"
 LAMBDA_INGESTION_NAME = "healing-bedroom-ingestion"
 
 # ============================================================================
-# Phase 2: Content Ingestion Pipeline
+# Content Ingestion Pipeline
 # ============================================================================
-INGESTION_SCHEDULE_CRON = os.getenv("INGESTION_SCHEDULE_CRON", "0 */6 * * ? *")
+INGESTION_SCHEDULE_CRON = "0 */6 * * ? *"
 
 # Apify configuration for social media scraping
 SOURCES_CONFIG = {
@@ -98,29 +91,14 @@ SOURCES_CONFIG = {
 
 # SQS Dead-Letter Queue
 SQS_DLQ_NAME = "healing-bedroom-ingestion-dlq"
-SQS_DLQ_RETENTION_SECONDS = 345600  # 4 days
-SQS_DLQ_VISIBILITY_TIMEOUT = 300  # 5 minutes
-SQS_INGESTION_DLQ_URL = os.getenv(
-    "SQS_INGESTION_DLQ_URL",
-    f"https://sqs.{AWS_REGION}.amazonaws.com/{AWS_ACCOUNT_ID}/{SQS_DLQ_NAME}",
-)
-
-# EventBridge
-EVENTBRIDGE_SCHEDULER_NAME = "healing-bedroom-ingestion-scheduler"
+SQS_INGESTION_DLQ_URL = f"https://sqs.{AWS_REGION}.amazonaws.com/{AWS_ACCOUNT_ID}/{SQS_DLQ_NAME}"
 
 # ============================================================================
-# Phase 6: Pipeline Monitoring & Error Handling
+# Ingestion Pipeline Monitoring & Error Handling
 # ============================================================================
 
 # Retry Configuration
 MAX_RETRY_ATTEMPTS = 3
-RETRY_BACKOFF_BASE = 2  # Exponential backoff: 2^n seconds
-
-# SNS Topic ARN for ingestion alerts
-SNS_INGESTION_ALERTS_TOPIC_ARN = os.getenv(
-    "SNS_INGESTION_ALERTS_TOPIC_ARN",
-    f"arn:aws:sns:{AWS_REGION}:{AWS_ACCOUNT_ID}:{SNS_TOPIC_INGESTION_ALERTS}",
-)
 
 # CloudWatch Metrics
 CLOUDWATCH_METRICS_NAMESPACE = "HealingBedroom/Ingestion"

@@ -120,7 +120,7 @@ def _publish_error_alert(
 
         # Publish to SNS topic (Phase 1 notifier Lambda will forward to Telegram)
         sns.publish(
-            TopicArn=config.SNS_INGESTION_ALERTS_TOPIC_ARN,
+            TopicArn=config.SNS_TOPIC_ALERTS_ARN,
             Subject=f"Ingestion Pipeline Alert: {error_type}",
             Message=alert_message,
         )

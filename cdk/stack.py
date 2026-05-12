@@ -55,7 +55,6 @@ class HealingBedroomStack(Stack):
         self.lambda_role = self._create_lambda_role()
         self.log_group = self._create_cloudwatch_log_group()
         self.sns_topic = self._create_sns_topic()
-        self.sns_ingestion_topic = self._create_ingestion_sns_topic()
         self.dlq = self._create_sqs_dlq()
         self.shared_layer = lambda_.LayerVersion(
             self,
@@ -83,7 +82,7 @@ class HealingBedroomStack(Stack):
             table_name=config.DYNAMODB_TABLE_NAME,
             partition_key=dynamodb.Attribute(name="item_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.RETAIN,
+            removal_policy=RemovalPolicy.DESTROY,
             point_in_time_recovery=False,
             encryption=dynamodb.TableEncryption.DEFAULT,
         )
@@ -115,13 +114,12 @@ class HealingBedroomStack(Stack):
             self,
             "HealingBedroomImagesBucket",
             bucket_name=config.get_bucket_name(),
-            removal_policy=RemovalPolicy.RETAIN,
+            removal_policy=RemovalPolicy.DESTROY,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
             versioned=False,
         )
 
-        # Lifecycle policy: delete objects after 7 days
         bucket.add_lifecycle_rule(
             expiration=Duration.days(config.S3_LIFECYCLE_DAYS),
         )
@@ -248,7 +246,7 @@ class HealingBedroomStack(Stack):
             )
         )
 
-        # Phase 2: SNS permissions for ingestion alerts
+        # SNS permissions for alerts
         role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -256,7 +254,7 @@ class HealingBedroomStack(Stack):
                     "sns:Publish",
                 ],
                 resources=[
-                    f"arn:aws:sns:{self.region}:{self.account}:{config.SNS_TOPIC_INGESTION_ALERTS}"
+                    f"arn:aws:sns:{self.region}:{self.account}:*"
                 ],
             )
         )
@@ -275,12 +273,12 @@ class HealingBedroomStack(Stack):
         return log_group
 
     def _create_sns_topic(self) -> sns.Topic:
-        """Create SNS topic for budget alerts."""
+        """Create SNS topic for alerts."""
         topic = sns.Topic(
             self,
-            "BudgetAlertsTopic",
-            topic_name=config.SNS_TOPIC_BUDGET_ALERTS,
-            display_name="Healing Bedroom Budget Alerts",
+            "AlertsTopic",
+            topic_name=config.SNS_TOPIC_ALERTS,
+            display_name="Healing Bedroom Alerts",
         )
         return topic
 
@@ -297,29 +295,13 @@ class HealingBedroomStack(Stack):
             memory_size=256,
             log_retention=logs.RetentionDays.ONE_WEEK,
             layers=[self.shared_layer],
-        )
-
-        notifier.add_to_role_policy(
-            iam.PolicyStatement(
-                actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
-                resources=["*"],
-            )
+            function_name=config.LAMBDA_NOTIFIER_NAME
         )
 
         # Subscribe Lambda to SNS topic
         self.sns_topic.add_subscription(sns_subs.LambdaSubscription(notifier))
 
         return notifier
-
-    def _create_ingestion_sns_topic(self) -> sns.Topic:
-        """Create SNS topic for ingestion pipeline alerts."""
-        topic = sns.Topic(
-            self,
-            "IngestionAlertsTopic",
-            topic_name=config.SNS_TOPIC_INGESTION_ALERTS,
-            display_name="Healing Bedroom Ingestion Alerts",
-        )
-        return topic
 
     def _create_sqs_dlq(self) -> sqs.Queue:
         """Create SQS dead-letter queue for failed ingestion items."""
@@ -328,7 +310,7 @@ class HealingBedroomStack(Stack):
             "IngestionDLQ",
             queue_name=config.SQS_DLQ_NAME,
             retention_period=Duration.hours(96),  # 4 days
-            visibility_timeout=Duration.seconds(config.SQS_DLQ_VISIBILITY_TIMEOUT),
+            visibility_timeout=Duration.seconds(300),
             enforce_ssl=True,
         )
         return dlq
@@ -342,17 +324,11 @@ class HealingBedroomStack(Stack):
             handler="lambda_function.lambda_handler",
             code=lambda_.Code.from_asset("src/lambdas/ingestion"),
             role=self.lambda_role,
-            timeout=Duration.seconds(600),  # 10 minutes for pipeline processing
+            timeout=Duration.seconds(600),
             memory_size=512,
             log_retention=logs.RetentionDays.ONE_WEEK,
             layers=[self.shared_layer],
-            function_name=config.LAMBDA_INGESTION_NAME,
-            environment={
-                "DYNAMODB_TABLE": config.DYNAMODB_TABLE_NAME,
-                "S3_BUCKET": config.get_bucket_name(),
-                "SQS_DLQ_URL": self.dlq.queue_url,
-                "SNS_INGESTION_TOPIC": self.sns_ingestion_topic.topic_arn,
-            },
+            function_name=config.LAMBDA_INGESTION_NAME
         )
         return ingestion_lambda
 
@@ -416,7 +392,7 @@ class HealingBedroomStack(Stack):
         dlq_messages = cloudwatch.Metric(
             namespace="AWS/SQS",
             metric_name="ApproximateNumberOfMessagesVisible",
-            dimensions={"QueueName": config.SQS_DLQ_NAME},
+            dimensions_map={"QueueName": config.SQS_DLQ_NAME},
             statistic="Average",
             period=Duration.minutes(1),
             label="DLQ Messages",
@@ -426,7 +402,7 @@ class HealingBedroomStack(Stack):
         lambda_duration = cloudwatch.Metric(
             namespace="AWS/Lambda",
             metric_name="Duration",
-            dimensions={"FunctionName": config.LAMBDA_INGESTION_NAME},
+            dimensions_map={"FunctionName": config.LAMBDA_INGESTION_NAME},
             statistic="Average",
             period=Duration.minutes(1),
             label="Lambda Duration (ms)",
@@ -436,7 +412,7 @@ class HealingBedroomStack(Stack):
         lambda_errors = cloudwatch.Metric(
             namespace="AWS/Lambda",
             metric_name="Errors",
-            dimensions={"FunctionName": config.LAMBDA_INGESTION_NAME},
+            dimensions_map={"FunctionName": config.LAMBDA_INGESTION_NAME},
             statistic="Sum",
             period=Duration.minutes(1),
             label="Lambda Errors",
