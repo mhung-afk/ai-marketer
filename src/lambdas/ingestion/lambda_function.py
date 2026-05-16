@@ -7,18 +7,13 @@ Triggered by EventBridge Scheduler on configurable cron schedule.
 
 import json
 import logging
-import traceback
-from typing import Dict, Any
-from datetime import datetime, timezone
-
-import sys
 import os
-import json
-import logging
-import boto3
+import sys
+import traceback
+from datetime import datetime, timezone
+from typing import Dict, Any
 
-# Handle both direct execution and module imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+import boto3
 
 from common import config
 from common.utils import (
@@ -29,17 +24,13 @@ from common.utils import (
 from common.schemas import ContentItem, ContentStatus, CaptureTone
 from common.error_handlers import IngestionError, ApifyError, ClaudeError
 
-# Import ingestion-specific error handler
-if __name__ != "__main__":
-    from . import error_handlers as ingestion_error_handlers
-else:
-    import error_handlers as ingestion_error_handlers
-
 import apify_actor_client
 import claude_caption_generator
-import image_processor
 import deduplication
 import dynamodb_storage
+
+# Local error handlers (same folder, so direct import)
+import error_handlers as ingestion_error_handlers
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -79,9 +70,7 @@ class IngestionPipeline:
 
         self.apify_client = apify_actor_client.ApifyClientWrapper(self.apify_token)
         self.claude_client = claude_caption_generator.ClaudeClient(self.claude_key)
-        self.image_processor = image_processor.ImageProcessor()
         self.storage = dynamodb_storage.DynamoDBStorage()
-        self.sqs = boto3.client("sqs", region_name=config.AWS_REGION)
         self.cloudwatch = boto3.client("cloudwatch", region_name=config.AWS_REGION)
 
         # Metrics for this run
@@ -110,6 +99,10 @@ class IngestionPipeline:
 
             run_id = self.apify_client.start_actor_run(actor_id, options)
             logger.info(f"Started Apify run: {run_id} for {source_name}")
+
+            # Wait for the run to complete
+            self.apify_client.wait_for_run_to_finish(run_id, timeout_secs=300)
+            logger.info(f"Apify run {run_id} finished for {source_name}")
 
             # Retrieve results
             results = self.apify_client.retrieve_results(run_id, limit=20)
@@ -143,37 +136,22 @@ class IngestionPipeline:
         try:
             item_id = generate_item_id()
             source_url = scraped_item.get("url", "")
-            original_caption = scraped_item.get("caption", scraped_item.get("text", ""))
-            image_url = scraped_item.get("image", "")
+            original_caption = scraped_item.get("caption", "")
 
             logger.info(f"Processing item {item_id} from {source_platform}")
 
             # 1. Check for duplicates
-            if not original_caption or not image_url:
-                logger.warning(f"Skipping item {item_id}: missing caption or image")
+            if not original_caption:
+                logger.warning(f"Skipping item {item_id}: missing caption")
                 self.metrics["items_failed"] += 1
                 return
-
-            # 2. Download and hash image
-            image_bytes, extension = self.image_processor.download_image(image_url)
-            content_hash = self.image_processor.compute_content_hash(image_bytes)
-
-            # Check hash-based duplicate
-            is_dup_hash, existing_id = deduplication.check_duplicate_by_hash(content_hash)
-            if is_dup_hash:
-                logger.info(f"Duplicate by hash detected: {item_id} matches {existing_id}")
-                self.metrics["items_deduplicated"] += 1
-                return
-
-            # 3. Upload image to S3
-            cloudfront_url = self.image_processor.upload_to_s3(image_bytes, extension)
 
             # 4. Generate caption with Claude
             retry_count = 0
             caption_error = None
             try:
                 caption_response = self.claude_client.generate_caption(
-                    original_caption, source_platform, tone=CaptureTone.AESTHETIC.value
+                    original_caption, source_platform, source_url, tone=CaptureTone.AESTHETIC.value
                 )
                 ai_caption_vi, hashtags = self.claude_client.parse_caption_response(
                     caption_response
@@ -205,14 +183,11 @@ class IngestionPipeline:
                 original_caption=original_caption,
                 ai_caption_vi=ai_caption_vi,
                 ai_caption_tone=CaptureTone.AESTHETIC.value,
-                s3_image_key=cloudfront_url.split("/", 3)[-1],  # Extract path from URL
-                cloudfront_url=cloudfront_url,
-                content_hash=content_hash,
                 status=ContentStatus.RAW,
                 created_at=get_iso8601_timestamp(),
                 metadata={
-                    "source_engagement": scraped_item.get("engagement", {}),
-                    "source_author": scraped_item.get("author", ""),
+                    "short_code": scraped_item.get("shortCode", {}),
+                    "source_author": scraped_item.get("ownerUsername", ""),
                     "hashtags_added": hashtags,
                 },
             )

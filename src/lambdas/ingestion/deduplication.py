@@ -14,41 +14,41 @@ from common.error_handlers import DeduplicationError
 logger = logging.getLogger(__name__)
 
 
-def check_duplicate_by_hash(content_hash: str) -> Tuple[bool, Optional[str]]:
-    """
-    Check if content hash already exists in DynamoDB GSI.
+# def check_duplicate_by_hash(content_hash: str) -> Tuple[bool, Optional[str]]:
+#     """
+#     Check if content hash already exists in DynamoDB GSI.
 
-    Args:
-        content_hash: MD5 hash of content
+#     Args:
+#         content_hash: MD5 hash of content
 
-    Returns:
-        Tuple of (is_duplicate, existing_item_id). existing_item_id is None if
-        content is new.
+#     Returns:
+#         Tuple of (is_duplicate, existing_item_id). existing_item_id is None if
+#         content is new.
 
-    Raises:
-        DeduplicationError: If DynamoDB query fails
-    """
-    try:
-        dynamodb = boto3.resource("dynamodb", region_name=config.AWS_REGION)
-        table = dynamodb.Table(config.DYNAMODB_TABLE_NAME)
+#     Raises:
+#         DeduplicationError: If DynamoDB query fails
+#     """
+#     try:
+#         dynamodb = boto3.resource("dynamodb", region_name=config.AWS_REGION)
+#         table = dynamodb.Table(config.DYNAMODB_TABLE_NAME)
 
-        response = table.query(
-            IndexName="GSI_ContentHash",
-            KeyConditionExpression="content_hash = :hash",
-            ExpressionAttributeValues={":hash": content_hash},
-        )
+#         response = table.query(
+#             IndexName="GSI_ContentHash",
+#             KeyConditionExpression="content_hash = :hash",
+#             ExpressionAttributeValues={":hash": content_hash},
+#         )
 
-        if response.get("Items"):
-            existing_item = response["Items"][0]
-            item_id = existing_item.get("item_id")
-            logger.info(f"Duplicate found for hash {content_hash}: {item_id}")
-            return True, item_id
+#         if response.get("Items"):
+#             existing_item = response["Items"][0]
+#             item_id = existing_item.get("item_id")
+#             logger.info(f"Duplicate found for hash {content_hash}: {item_id}")
+#             return True, item_id
 
-        logger.info(f"No duplicate found for hash {content_hash}")
-        return False, None
+#         logger.info(f"No duplicate found for hash {content_hash}")
+#         return False, None
 
-    except ClientError as e:
-        raise DeduplicationError(f"Failed to query GSI for duplicate: {e}")
+#     except ClientError as e:
+#         raise DeduplicationError(f"Failed to query GSI for duplicate: {e}")
 
 
 def check_duplicate_by_url(source_url: str) -> Tuple[bool, Optional[str]]:

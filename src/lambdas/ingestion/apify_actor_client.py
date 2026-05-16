@@ -55,7 +55,7 @@ class ApifyClientWrapper:
         """
         try:
             run_client = self.client.run(run_id)
-            final_run = run_client.wait_for_finish(timeout_secs=timeout_secs)
+            final_run = run_client.wait_for_finish(wait_secs=timeout_secs)
 
             status = final_run.get("status") if isinstance(final_run, dict) else getattr(final_run, "status", None)
             logger.info(f"Run {run_id} completed with status: {status}")

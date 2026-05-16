@@ -1,0 +1,7 @@
+# Production dependencies only
+boto3==1.43.2
+botocore==1.43.2
+anthropic>=0.45.0
+apify-client==1.7.0
+pydantic>=2.8.0
+requests==2.31.0

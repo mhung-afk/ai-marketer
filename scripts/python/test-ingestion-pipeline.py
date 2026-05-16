@@ -40,9 +40,9 @@ sys.path.insert(0, ".")
 from src.common import config
 
 # AWS Clients
-lambda_client = boto3.client("lambda", region_name=config.AWS_REGION)
-dynamodb = boto3.resource("dynamodb", region_name=config.AWS_REGION)
-s3 = boto3.client("s3", region_name=config.AWS_REGION)
+lambda_client = boto3.client("lambda", region_name='ap-southeast-1')
+dynamodb = boto3.resource("dynamodb", region_name='ap-southeast-1')
+s3 = boto3.client("s3", region_name='ap-southeast-1')
 
 
 def test_configuration() -> bool:
@@ -54,7 +54,7 @@ def test_configuration() -> bool:
     errors = []
 
     # Check AWS region
-    logger.info(f"✓ AWS Region: {config.AWS_REGION}")
+    logger.info(f"✓ AWS Region: {'ap-southeast-1'}")
 
     # Check Lambda function exists
     try:
@@ -72,7 +72,7 @@ def test_configuration() -> bool:
         errors.append(f"DynamoDB table error: {e}")
 
     # Check Parameter Store keys exist
-    ssm = boto3.client("ssm", region_name=config.AWS_REGION)
+    ssm = boto3.client("ssm", region_name='ap-southeast-1')
     required_params = [
         config.PARAM_APIFY_API_TOKEN,
         config.PARAM_ANTHROPIC_API_KEY,
@@ -150,7 +150,7 @@ def wait_for_processing(max_wait_seconds: int = 120) -> bool:
     while (time.time() - start_time) < max_wait_seconds:
         try:
             # Check CloudWatch logs for completion
-            logs = boto3.client("logs", region_name=config.AWS_REGION)
+            logs = boto3.client("logs", region_name='ap-southeast-1')
             response = logs.filter_log_events(
                 logGroupName=config.LOG_GROUP_NAME,
                 logStreamNamePrefix=config.LAMBDA_INGESTION_NAME,
@@ -267,7 +267,7 @@ def check_cloudwatch_errors() -> int:
     logger.info("CHECKING CLOUDWATCH LOGS FOR ERRORS")
     logger.info("=" * 70)
 
-    logs = boto3.client("logs", region_name=config.AWS_REGION)
+    logs = boto3.client("logs", region_name='ap-southeast-1')
 
     try:
         # Get error logs from last 10 minutes

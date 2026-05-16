@@ -5,6 +5,7 @@ This module defines the main Healing Bedroom infrastructure stack.
 """
 
 from aws_cdk import (
+    BundlingOptions,
     Stack,
     aws_dynamodb as dynamodb,
     aws_s3 as s3,
@@ -56,10 +57,27 @@ class HealingBedroomStack(Stack):
         self.log_group = self._create_cloudwatch_log_group()
         self.sns_topic = self._create_sns_topic()
         self.dlq = self._create_sqs_dlq()
-        self.shared_layer = lambda_.LayerVersion(
+        self.common_layer = lambda_.LayerVersion(
             self,
             "SharedCommonLayer",
-            code=lambda_.Code.from_asset("src/layers/common"),
+            code=lambda_.Code.from_asset(
+                "src",
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    user="root",
+                    command=[
+                        "bash", "-c",
+                        """
+                        set -e
+                        mkdir -p /asset-output/python
+                        cp -r /asset-input/common /asset-output/python/
+                        find /asset-output -name "__pycache__" -exec rm -rf {} + || true
+                        find /asset-output -name "*.pyc" -delete || true
+                        ls -la /asset-output/python/common/
+                        """
+                    ]
+                )
+            ),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
             description="Shared utilities, config, SSM helpers",
             layer_version_name="healing-bedroom-common",
@@ -96,15 +114,15 @@ class HealingBedroomStack(Stack):
         )
 
         # Phase 2: Global Secondary Index on content_hash for deduplication
-        table.add_global_secondary_index(
-            index_name="GSI_ContentHash",
-            partition_key=dynamodb.Attribute(
-                name="content_hash", type=dynamodb.AttributeType.STRING
-            ),
-            sort_key=dynamodb.Attribute(name="created_at", type=dynamodb.AttributeType.STRING),
-            projection_type=dynamodb.ProjectionType.INCLUDE,
-            non_key_attributes=["source_url", "item_id"],
-        )
+        # table.add_global_secondary_index(
+        #     index_name="GSI_ContentHash",
+        #     partition_key=dynamodb.Attribute(
+        #         name="content_hash", type=dynamodb.AttributeType.STRING
+        #     ),
+        #     sort_key=dynamodb.Attribute(name="created_at", type=dynamodb.AttributeType.STRING),
+        #     projection_type=dynamodb.ProjectionType.INCLUDE,
+        #     non_key_attributes=["source_url", "item_id"],
+        # )
 
         return table
 
@@ -294,7 +312,7 @@ class HealingBedroomStack(Stack):
             timeout=Duration.seconds(30),
             memory_size=256,
             log_retention=logs.RetentionDays.ONE_WEEK,
-            layers=[self.shared_layer],
+            layers=[self.common_layer],
             function_name=config.LAMBDA_NOTIFIER_NAME
         )
 
@@ -317,17 +335,48 @@ class HealingBedroomStack(Stack):
 
     def _create_ingestion_lambda(self) -> lambda_.Function:
         """Create Lambda function for Phase 2 content ingestion pipeline."""
+        
+        # Dependencies Layer (unchanged)
+        deps_layer = lambda_.LayerVersion(
+            self,
+            "IngestionDepsLayer",
+            code=lambda_.Code.from_asset(
+                "src/lambdas/ingestion",
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    user="root",
+                    command=[
+                        "bash", "-c",
+                        """
+                        set -e
+                        mkdir -p /asset-output/python
+                        pip install -r requirements.prod.txt -t /asset-output/python \
+                            --no-cache-dir --platform manylinux2014_x86_64 --only-binary=:all:
+                        find /asset-output -name "__pycache__" -exec rm -rf {} + || true
+                        find /asset-output -name "*.pyc" -delete || true
+                        rm -rf /asset-output/python/bin
+                        """
+                    ]
+                )
+            ),
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
+            description="Production dependencies"
+        )
+
         ingestion_lambda = lambda_.Function(
             self,
             "IngestionLambda",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="lambda_function.lambda_handler",
-            code=lambda_.Code.from_asset("src/lambdas/ingestion"),
+            code=lambda_.Code.from_asset("src/lambdas/ingestion",
+                exclude=["**/__pycache__", "**/*.pyc", "requirements.prod.txt", ".git"]
+            ),
+            # No custom bundling on main code!
             role=self.lambda_role,
             timeout=Duration.seconds(600),
             memory_size=512,
             log_retention=logs.RetentionDays.ONE_WEEK,
-            layers=[self.shared_layer],
+            layers=[deps_layer],
             function_name=config.LAMBDA_INGESTION_NAME
         )
         return ingestion_lambda

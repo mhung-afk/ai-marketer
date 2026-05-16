@@ -38,12 +38,15 @@ Rules:
         self, 
         original_caption: str, 
         source_platform: str = "social",
+        source_url: str = "",
         tone: str = "aesthetic"
     ) -> str:
         """
         Generate Vietnamese brand-aligned caption.
         """
         user_message = f"""Original caption from {source_platform}: "{original_caption}"
+
+Source URL: {source_url} You MUST visit this URL to gain more infomation.
 
 Create a calming, aspirational Vietnamese caption in {tone} tone for Healing Bedroom.
 Include 3-5 relevant hashtags at the end."""
@@ -61,7 +64,7 @@ Include 3-5 relevant hashtags at the end."""
             response = retry_with_backoff(call_claude, max_retries=3, base_delay=1.5)
             
             caption_text = response.content[0].text.strip()
-            logger.info(f"Claude generated caption ({len(caption_text)} chars)")
+            logger.info(f"Claude generated caption ({len(caption_text)} chars): {caption_text}")
             return caption_text
 
         except AuthenticationError:

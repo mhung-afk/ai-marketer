@@ -11,8 +11,8 @@ import boto3
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
-from src.common import config
-from src.common.utils import get_iso8601_timestamp, get_parameter
+from common import config
+from common.utils import get_iso8601_timestamp, get_parameter
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -119,13 +119,16 @@ def _publish_error_alert(
             alert_message += f"\n**Recovery Hint**: {remediation}\n"
 
         # Publish to SNS topic (Phase 1 notifier Lambda will forward to Telegram)
-        sns.publish(
-            TopicArn=config.SNS_TOPIC_ALERTS_ARN,
-            Subject=f"Ingestion Pipeline Alert: {error_type}",
-            Message=alert_message,
-        )
-
-        logger.info(f"Error alert published to SNS: {error_type}")
+        # Only publish if we have a valid ARN (requires AWS_ACCOUNT_ID)
+        if config.SNS_TOPIC_ALERTS_ARN and config.AWS_ACCOUNT_ID:
+            sns.publish(
+                TopicArn=config.SNS_TOPIC_ALERTS_ARN,
+                Subject=f"Ingestion Pipeline Alert: {error_type}",
+                Message=alert_message,
+            )
+            logger.info(f"Error alert published to SNS: {error_type}")
+        else:
+            logger.warning(f"Skipping SNS publish: AccountId or Topic not configured. Error: {error_type}")
 
     except Exception as e:
         logger.error(f"Failed to publish error alert: {str(e)}", exc_info=True)
@@ -196,7 +199,7 @@ def _get_remediation_hint(error_type: str) -> Optional[str]:
         "CLAUDE_RATE_LIMIT": "Claude rate limit reached; wait 60 seconds; consider reducing caption batch size",
         "IMAGE_PROCESSING_ERROR": "Check image URL is valid and accessible; verify S3 bucket permissions; check image format support",
         "S3_UPLOAD_ERROR": "Check S3 bucket exists; verify IAM role has PutObject permission; check bucket policy",
-        "DEDUPLICATION_ERROR": "Check DynamoDB table exists; verify GSI_ContentHash is created; check IAM permissions",
+        # "DEDUPLICATION_ERROR": "Check DynamoDB table exists; verify GSI_ContentHash is created; check IAM permissions",
         "DYNAMODB_ERROR": "Check DynamoDB table HealingBedroomContent exists; verify on-demand billing is enabled; check IAM permissions",
     }
     return hints.get(error_type)

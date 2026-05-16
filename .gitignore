@@ -75,3 +75,6 @@ coverage.xml
 
 # Project specific
 .specify/cache/
+
+# Generated Lambda layer (synced from src/common)
+src/layers/common/python/common/
