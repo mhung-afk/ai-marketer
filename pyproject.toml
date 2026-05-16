@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "healing-bedroom-mvp"
+version = "0.2.0"
+description = "Vietnamese AI-powered content curation and repurposing pipeline"
+requires-python = ">=3.12"
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+extend-exclude = '''
+/(
+  | venv
+  | cdk\.out
+  | cdk\.context\.json
+  | \.specify
+)/
+'''
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+no_implicit_optional = true
+exclude = ["venv", "cdk.out", ".specify"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests"
+]

@@ -6,8 +6,16 @@ This module initializes and synthesizes the Healing Bedroom infrastructure stack
 """
 
 import os
+import subprocess
 from aws_cdk import App, Environment
 from cdk.stack import HealingBedroomStack
+
+# Sync Lambda layer files before CDK synthesis
+subprocess.run(
+    ["bash", "scripts/sync-layer.sh"],
+    cwd=os.path.dirname(__file__),
+    check=True
+)
 
 # Initialize CDK App
 app = App()

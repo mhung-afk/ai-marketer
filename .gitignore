@@ -74,5 +74,7 @@ coverage.xml
 *.cover
 
 # Project specific
-vault/secret.txt
 .specify/cache/
+
+# Generated Lambda layer (synced from src/common)
+src/layers/common/python/common/

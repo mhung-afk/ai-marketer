@@ -2,14 +2,18 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-**Current Plan**: [Phase 1 Foundation – AWS Infrastructure](../specs/001-phase1-foundation/plan.md)
+**Current Plan**: [Phase 2 Content Ingestion Pipeline](../specs/002-content-ingestion-pipeline/plan.md)
 
-**Related Specs**:
-- [Phase 1 Specification](../specs/001-phase1-foundation/spec.md) – Features, requirements, acceptance criteria
-- [Phase 1 Research](../specs/001-phase1-foundation/research.md) – Technical decisions & rationale
-- [Data Model](../specs/001-phase1-foundation/data-model.md) – DynamoDB schema
-- [Quickstart Guide](../specs/001-phase1-foundation/quickstart.md) – Deployment instructions
-- [Interface Contracts](../specs/001-phase1-foundation/contracts/) – External integration specs
+**Phase 2 Specs**:
+- [Phase 2 Specification](../specs/002-content-ingestion-pipeline/spec.md) – Features, requirements, acceptance criteria
+- [Phase 2 Research](../specs/002-content-ingestion-pipeline/research.md) – Technical decisions & rationale
+- [Data Model](../specs/002-content-ingestion-pipeline/data-model.md) – DynamoDB schema + GSI
+- [Quickstart Guide](../specs/002-content-ingestion-pipeline/quickstart.md) – Deployment instructions
+- [Interface Contracts](../specs/002-content-ingestion-pipeline/contracts/) – Apify, Claude, S3/CloudFront contracts
+
+**Phase 1 Reference** (for reused patterns):
+- [Phase 1 Plan](../specs/001-phase1-foundation/plan.md)
+- [Phase 1 Data Model](../specs/001-phase1-foundation/data-model.md)
 
 For information on project principles and decision-making, read: [Constitution](../.specify/memory/constitution.md)
 <!-- SPECKIT END -->
